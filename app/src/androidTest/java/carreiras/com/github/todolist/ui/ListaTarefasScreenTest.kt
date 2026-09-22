@@ -3,7 +3,6 @@ package carreiras.com.github.todolist.ui
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.test.assertDoesNotExist
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -24,8 +23,8 @@ class ListaTarefasScreenTest {
 
     @Test
     fun cancelarEConfirmarExclusaoAfetamSomenteATarefaSelecionada() {
-        val primeiraTarefa = Tarefa(id = 1, titulo = "Estudar Room")
-        val segundaTarefa = Tarefa(id = 2, titulo = "Enviar atividade")
+        val primeiraTarefa = Tarefa(id = 1, titulo = "Estudar Room", descricao = "")
+        val segundaTarefa = Tarefa(id = 2, titulo = "Enviar atividade", descricao = "")
         var tarefaParaExcluir by mutableStateOf<Tarefa?>(null)
         var tarefaExcluida: Tarefa? = null
 
