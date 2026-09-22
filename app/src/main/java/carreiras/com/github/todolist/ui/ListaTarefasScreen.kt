@@ -16,6 +16,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -25,9 +26,13 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -48,15 +53,23 @@ fun ListaTarefasScreen(
     onEditarTarefa: (Int) -> Unit
 ) {
     val tarefas by viewModel.tarefas.collectAsStateWithLifecycle()
+    var tarefaIdParaExcluir by rememberSaveable { mutableStateOf<Int?>(null) }
+    val tarefaParaExcluir = tarefas.firstOrNull { it.id == tarefaIdParaExcluir }
 
     ListaTarefasContent(
         tarefas = tarefas,
+        tarefaParaExcluir = tarefaParaExcluir,
         onNovaTarefa = onNovaTarefa,
         onEditarTarefa = onEditarTarefa,
         onCheckedChange = { tarefa, concluida ->
             viewModel.atualizar(tarefa.copy(concluida = concluida))
         },
-        onDeletar = { tarefa -> viewModel.deletar(tarefa) }
+        onSolicitarExclusao = { tarefa -> tarefaIdParaExcluir = tarefa.id },
+        onCancelarExclusao = { tarefaIdParaExcluir = null },
+        onConfirmarExclusao = { tarefa ->
+            tarefaIdParaExcluir = null
+            viewModel.deletar(tarefa)
+        }
     )
 }
 
@@ -64,10 +77,13 @@ fun ListaTarefasScreen(
 @Composable
 fun ListaTarefasContent(
     tarefas: List<Tarefa>,
+    tarefaParaExcluir: Tarefa? = null,
     onNovaTarefa: () -> Unit,
     onEditarTarefa: (Int) -> Unit,
     onCheckedChange: (Tarefa, Boolean) -> Unit,
-    onDeletar: (Tarefa) -> Unit
+    onSolicitarExclusao: (Tarefa) -> Unit,
+    onCancelarExclusao: () -> Unit,
+    onConfirmarExclusao: (Tarefa) -> Unit
 ) {
     Scaffold(
         topBar = {
@@ -101,12 +117,55 @@ fun ListaTarefasContent(
                         tarefa = tarefa,
                         onCheckedChange = { concluida -> onCheckedChange(tarefa, concluida) },
                         onEditar = { onEditarTarefa(tarefa.id) },
-                        onDeletar = { onDeletar(tarefa) }
+                        onDeletar = { onSolicitarExclusao(tarefa) }
                     )
                 }
             }
         }
     }
+
+    tarefaParaExcluir?.let { tarefa ->
+        ConfirmacaoExclusaoDialog(
+            tarefa = tarefa,
+            onCancelar = onCancelarExclusao,
+            onConfirmar = { onConfirmarExclusao(tarefa) }
+        )
+    }
+}
+
+@Composable
+private fun ConfirmacaoExclusaoDialog(
+    tarefa: Tarefa,
+    onCancelar: () -> Unit,
+    onConfirmar: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onCancelar,
+        title = { Text("Excluir tarefa?") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("A tarefa será excluída permanentemente:")
+                Text(
+                    text = tarefa.titulo,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onCancelar) {
+                Text("Cancelar")
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onConfirmar) {
+                Text(
+                    text = "Excluir",
+                    color = MaterialTheme.colorScheme.error
+                )
+            }
+        }
+    )
 }
 
 @Composable
@@ -155,7 +214,10 @@ private fun TarefaItem(
                 }
             }
             IconButton(onClick = onDeletar) {
-                Icon(Icons.Default.Delete, contentDescription = "Deletar tarefa")
+                Icon(
+                    imageVector = Icons.Default.Delete,
+                    contentDescription = "Excluir tarefa ${tarefa.titulo}"
+                )
             }
         }
     }
@@ -172,7 +234,9 @@ private fun ListaTarefasContentPreview() {
         onNovaTarefa = {},
         onEditarTarefa = {},
         onCheckedChange = { _, _ -> },
-        onDeletar = {}
+        onSolicitarExclusao = {},
+        onCancelarExclusao = {},
+        onConfirmarExclusao = {}
     )
 }
 
@@ -184,7 +248,39 @@ private fun ListaTarefasContentVaziaPreview() {
         onNovaTarefa = {},
         onEditarTarefa = {},
         onCheckedChange = { _, _ -> },
-        onDeletar = {}
+        onSolicitarExclusao = {},
+        onCancelarExclusao = {},
+        onConfirmarExclusao = {}
+    )
+}
+
+@Preview(showBackground = true, name = "Confirmação de exclusão")
+@Composable
+private fun ListaTarefasContentConfirmacaoExclusaoPreview() {
+    val tarefaSelecionada = Tarefa(
+        id = 1,
+        titulo = "Estudar Room",
+        descricao = "Revisar anotações e DAO",
+        concluida = false
+    )
+
+    ListaTarefasContent(
+        tarefas = listOf(
+            tarefaSelecionada,
+            Tarefa(
+                id = 2,
+                titulo = "Enviar atividade",
+                descricao = "Upload no portal da FIAP",
+                concluida = true
+            )
+        ),
+        tarefaParaExcluir = tarefaSelecionada,
+        onNovaTarefa = {},
+        onEditarTarefa = {},
+        onCheckedChange = { _, _ -> },
+        onSolicitarExclusao = {},
+        onCancelarExclusao = {},
+        onConfirmarExclusao = {}
     )
 }
 
